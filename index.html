@@ -1,0 +1,1967 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIGNAL LOG</title>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root{
+  --bg:#010204;
+  --bg-soft:#04070b;
+  --panel:#070c12;
+  --card:#091019;
+  --card-hover:#0c1620;
+  --line:#101d29;
+  --line-bright:#173448;
+
+  --accent:#42d7ff;
+  --accent-soft:#153f4f;
+  --accent-glow:rgba(66,215,255,.22);
+
+  --text:#edf9ff;
+  --text-soft:#8da6b4;
+  --text-muted:#536875;
+  --text-faint:#293944;
+
+  --danger:#ff7284;
+  --shadow:0 24px 80px rgba(0,0,0,.72);
+}
+
+*{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+
+html{
+  min-height:100%;
+  background:var(--bg);
+}
+
+body{
+  min-height:100vh;
+  color:var(--text);
+  font-family:'Inter',sans-serif;
+  background:
+    radial-gradient(circle at 50% -15%, rgba(33,104,133,.16), transparent 38%),
+    linear-gradient(180deg, #020406 0%, var(--bg) 58%, #000 100%);
+  overflow-x:hidden;
+}
+
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+  background-image:
+    linear-gradient(rgba(66,215,255,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(66,215,255,.018) 1px, transparent 1px);
+  background-size:44px 44px;
+  mask-image:linear-gradient(to bottom, black, transparent 82%);
+}
+
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  background:repeating-linear-gradient(
+    0deg,
+    rgba(255,255,255,.009) 0,
+    rgba(255,255,255,.009) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+}
+
+button,
+input,
+textarea,
+select{
+  font:inherit;
+}
+
+button{
+  -webkit-tap-highlight-color:transparent;
+}
+
+.app{
+  position:relative;
+  z-index:2;
+  width:min(1060px, 100%);
+  margin:0 auto;
+  padding:42px 26px 120px;
+}
+
+/* HEADER */
+
+.header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:18px;
+  margin-bottom:30px;
+}
+
+.brand{
+  min-width:0;
+}
+
+.brand-title{
+  font-family:'Orbitron',sans-serif;
+  font-size:21px;
+  font-weight:900;
+  letter-spacing:3px;
+  line-height:1;
+}
+
+.brand-title span{
+  color:var(--accent);
+  text-shadow:0 0 18px var(--accent-glow);
+}
+
+.brand-sub{
+  margin-top:8px;
+  color:var(--text-muted);
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  letter-spacing:1.25px;
+}
+
+.header-actions{
+  display:flex;
+  gap:9px;
+}
+
+.icon-btn{
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:rgba(7,12,18,.88);
+  color:var(--text-muted);
+  cursor:pointer;
+  transition:.22s ease;
+}
+
+.icon-btn:hover{
+  color:var(--accent);
+  border-color:var(--line-bright);
+  box-shadow:0 0 18px var(--accent-glow);
+}
+
+/* TABS */
+
+.tabs{
+  display:flex;
+  gap:34px;
+  align-items:center;
+}
+
+.tab{
+  position:relative;
+  padding:9px 1px 16px;
+  border:0;
+  background:none;
+  color:var(--text-faint);
+  font-family:'Orbitron',sans-serif;
+  font-size:15px;
+  font-weight:700;
+  letter-spacing:2.2px;
+  cursor:pointer;
+  transition:.2s ease;
+}
+
+.tab:hover{
+  color:var(--text-soft);
+}
+
+.tab.active{
+  color:var(--text);
+}
+
+.tab.active::after{
+  content:"";
+  position:absolute;
+  left:0;
+  bottom:7px;
+  width:100%;
+  height:1px;
+  background:var(--accent);
+  box-shadow:0 0 12px var(--accent);
+}
+
+.signal-divider{
+  position:relative;
+  height:32px;
+  margin-top:-4px;
+  margin-bottom:26px;
+  overflow:hidden;
+}
+
+.signal-divider svg{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  overflow:visible;
+}
+
+.signal-base{
+  fill:none;
+  stroke:rgba(66,215,255,.10);
+  stroke-width:1;
+  vector-effect:non-scaling-stroke;
+}
+
+.signal-main,
+.signal-glow{
+  fill:none;
+  vector-effect:non-scaling-stroke;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+.signal-main{
+  stroke:var(--accent);
+  stroke-width:1.35;
+  opacity:.92;
+  stroke-dasharray:120 880;
+  stroke-dashoffset:0;
+  animation:signalTravel 5.8s linear infinite;
+}
+
+.signal-glow{
+  stroke:rgba(66,215,255,.34);
+  stroke-width:5;
+  opacity:.45;
+  filter:blur(4px);
+  stroke-dasharray:120 880;
+  stroke-dashoffset:0;
+  animation:signalTravel 5.8s linear infinite;
+}
+
+.signal-fade{
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:110px;
+  z-index:2;
+  pointer-events:none;
+}
+
+.signal-fade-left{
+  left:0;
+  background:linear-gradient(90deg,var(--bg) 10%,transparent);
+}
+
+.signal-fade-right{
+  right:0;
+  background:linear-gradient(270deg,var(--bg) 10%,transparent);
+}
+
+@keyframes signalTravel{
+  from{ stroke-dashoffset:0; }
+  to{ stroke-dashoffset:-1000; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .signal-main,
+  .signal-glow{
+    animation:none;
+    stroke-dasharray:none;
+  }
+}
+
+/* TOOLBAR */
+
+.toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  flex-wrap:wrap;
+  margin-bottom:24px;
+}
+
+.left-tools{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex:1;
+  min-width:240px;
+}
+
+.count{
+  color:var(--text-muted);
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  letter-spacing:.7px;
+  white-space:nowrap;
+}
+
+.search-box{
+  position:relative;
+  flex:1;
+  max-width:360px;
+}
+
+.search-box input{
+  width:100%;
+  height:38px;
+  padding:0 38px 0 13px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:rgba(5,9,14,.88);
+  color:var(--text);
+  outline:none;
+  font-size:12px;
+}
+
+.search-box input:focus{
+  border-color:var(--line-bright);
+  box-shadow:0 0 0 3px rgba(66,215,255,.06);
+}
+
+.search-box span{
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  color:var(--text-faint);
+  font-size:13px;
+}
+
+.sort-select{
+  height:38px;
+  padding:0 12px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:var(--panel);
+  color:var(--text-soft);
+  outline:none;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10.5px;
+  cursor:pointer;
+}
+
+/* CARDS */
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(158px,1fr));
+  gap:20px;
+}
+
+.card{
+  min-width:0;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:linear-gradient(180deg, var(--card), #060b11);
+  cursor:pointer;
+  opacity:0;
+  transform:translateY(18px);
+  animation:cardIn .45s ease forwards;
+  transition:transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+
+.card:hover{
+  transform:translateY(-5px);
+  border-color:var(--line-bright);
+  box-shadow:0 18px 36px -18px var(--accent-glow);
+}
+
+@keyframes cardIn{
+  to{
+    opacity:1;
+    transform:translateY(0);
+  }
+}
+
+.poster{
+  width:100%;
+  aspect-ratio:2/3;
+  position:relative;
+  overflow:hidden;
+  background:
+    linear-gradient(145deg, rgba(66,215,255,.06), transparent 50%),
+    #05090d;
+}
+
+.poster img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+
+.poster::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  box-shadow:inset 0 -30px 40px rgba(0,0,0,.15);
+  pointer-events:none;
+}
+
+.poster-empty{
+  width:100%;
+  height:100%;
+  display:grid;
+  place-items:center;
+  padding:18px;
+  color:var(--text-faint);
+  text-align:center;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  line-height:1.6;
+  letter-spacing:.5px;
+}
+
+.card-info{
+  padding:12px 12px 13px;
+}
+
+.card-title{
+  min-height:36px;
+  color:var(--text);
+  font-size:13px;
+  font-weight:600;
+  line-height:1.4;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+
+.card-subtitle{
+  margin-top:5px;
+  color:var(--text-muted);
+  font-size:10.5px;
+  line-height:1.4;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.card-bottom{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  margin-top:10px;
+  color:var(--text-muted);
+  font-family:'JetBrains Mono',monospace;
+  font-size:9.5px;
+}
+
+.rating{
+  color:var(--accent);
+  letter-spacing:.5px;
+}
+
+.empty{
+  grid-column:1 / -1;
+  padding:100px 24px;
+  text-align:center;
+}
+
+.empty-code{
+  color:var(--accent-soft);
+  font-family:'Orbitron',sans-serif;
+  font-size:12px;
+  letter-spacing:4px;
+  margin-bottom:15px;
+}
+
+.empty p{
+  max-width:390px;
+  margin:0 auto;
+  color:var(--text-muted);
+  font-size:13px;
+  line-height:1.75;
+}
+
+/* FAB */
+
+.fab{
+  position:fixed;
+  right:30px;
+  bottom:30px;
+  z-index:20;
+  width:58px;
+  height:58px;
+  border:0;
+  border-radius:50%;
+  background:var(--accent);
+  color:#011017;
+  font-size:28px;
+  cursor:pointer;
+  box-shadow:
+    0 0 0 0 rgba(66,215,255,.25),
+    0 16px 35px rgba(0,0,0,.6);
+  animation:pulse 2.8s ease-in-out infinite;
+  transition:transform .2s ease;
+}
+
+.fab:hover{
+  transform:scale(1.07);
+}
+
+@keyframes pulse{
+  50%{
+    box-shadow:
+      0 0 0 12px rgba(66,215,255,0),
+      0 16px 35px rgba(0,0,0,.6);
+  }
+}
+
+/* MODAL */
+
+.overlay{
+  position:fixed;
+  inset:0;
+  z-index:60;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  padding:5vh 18px;
+  overflow-y:auto;
+  background:rgba(0,2,4,.82);
+  backdrop-filter:blur(6px);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .22s ease;
+}
+
+.overlay.open{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.panel{
+  width:min(500px,100%);
+  position:relative;
+  padding:27px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:
+    linear-gradient(180deg, rgba(12,20,29,.98), rgba(5,9,14,.99));
+  box-shadow:var(--shadow);
+  opacity:0;
+  transform:translateY(16px);
+  transition:.28s ease;
+}
+
+.overlay.open .panel{
+  opacity:1;
+  transform:translateY(0);
+}
+
+.panel-title{
+  margin-bottom:20px;
+  color:var(--accent);
+  font-family:'Orbitron',sans-serif;
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:2px;
+}
+
+.close{
+  position:absolute;
+  top:18px;
+  right:19px;
+  border:0;
+  background:none;
+  color:var(--text-muted);
+  font-size:18px;
+  cursor:pointer;
+}
+
+.close:hover{
+  color:var(--accent);
+}
+
+.field{
+  margin-bottom:16px;
+}
+
+.field label{
+  display:block;
+  margin-bottom:7px;
+  color:var(--text-muted);
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  letter-spacing:1px;
+}
+
+.field input,
+.field textarea,
+.field select{
+  width:100%;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#050a0f;
+  color:var(--text);
+  outline:none;
+  padding:11px 12px;
+  font-size:13px;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus{
+  border-color:var(--line-bright);
+  box-shadow:0 0 0 3px rgba(66,215,255,.06);
+}
+
+.field textarea{
+  min-height:98px;
+  resize:vertical;
+  line-height:1.6;
+}
+
+.row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+
+.upload-box{
+  position:relative;
+  min-height:126px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  border:1px dashed var(--line-bright);
+  border-radius:10px;
+  background:#04080c;
+  cursor:pointer;
+}
+
+.upload-box:hover{
+  background:#061019;
+}
+
+.upload-box input{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  opacity:0;
+  cursor:pointer;
+}
+
+.upload-placeholder{
+  padding:20px;
+  color:var(--text-muted);
+  text-align:center;
+  font-family:'JetBrains Mono',monospace;
+  font-size:10.5px;
+  line-height:1.65;
+}
+
+.upload-preview{
+  width:100%;
+  max-height:260px;
+  object-fit:contain;
+  display:none;
+}
+
+.stars{
+  display:flex;
+  gap:7px;
+  font-size:23px;
+}
+
+.stars button{
+  border:0;
+  background:none;
+  color:var(--text-faint);
+  cursor:pointer;
+  transition:.15s ease;
+}
+
+.stars button.on{
+  color:var(--accent);
+  text-shadow:0 0 10px var(--accent-glow);
+}
+
+.stars button:hover{
+  transform:scale(1.14);
+}
+
+.actions{
+  display:flex;
+  gap:10px;
+  margin-top:22px;
+}
+
+.btn{
+  flex:1;
+  min-height:43px;
+  padding:10px 14px;
+  border-radius:9px;
+  border:1px solid var(--line);
+  cursor:pointer;
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  letter-spacing:.8px;
+  transition:.18s ease;
+}
+
+.btn-primary{
+  border-color:transparent;
+  background:var(--accent);
+  color:#021117;
+  font-weight:700;
+}
+
+.btn-primary:hover{
+  box-shadow:0 0 20px var(--accent-glow);
+}
+
+.btn-ghost{
+  background:transparent;
+  color:var(--text-muted);
+}
+
+.btn-ghost:hover{
+  color:var(--text);
+  border-color:var(--line-bright);
+}
+
+.btn-danger{
+  background:transparent;
+  color:var(--danger);
+  border-color:#3d1c23;
+}
+
+.btn-danger:hover{
+  background:#1d0b0f;
+}
+
+.hint{
+  margin-top:7px;
+  color:var(--text-faint);
+  font-family:'JetBrains Mono',monospace;
+  font-size:9.8px;
+  line-height:1.6;
+}
+
+.local-results{
+  max-height:210px;
+  overflow-y:auto;
+  margin-top:10px;
+}
+
+.local-result{
+  display:flex;
+  gap:11px;
+  align-items:center;
+  padding:9px;
+  border-radius:9px;
+  cursor:pointer;
+}
+
+.local-result:hover{
+  background:rgba(66,215,255,.06);
+}
+
+.local-thumb{
+  width:38px;
+  height:56px;
+  flex:0 0 auto;
+  border-radius:5px;
+  object-fit:cover;
+  background:#04080c;
+}
+
+.local-result-title{
+  font-size:12px;
+  font-weight:600;
+}
+
+.local-result-sub{
+  margin-top:3px;
+  color:var(--text-muted);
+  font-size:10.5px;
+}
+
+.divider{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin:18px 0;
+  color:var(--text-faint);
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;
+  letter-spacing:1px;
+}
+
+.divider::before,
+.divider::after{
+  content:"";
+  flex:1;
+  height:1px;
+  background:var(--line);
+}
+
+/* DETAIL */
+
+.detail-head{
+  display:flex;
+  gap:16px;
+  align-items:flex-start;
+}
+
+.detail-cover{
+  width:92px;
+  aspect-ratio:2/3;
+  flex:0 0 auto;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#04080c;
+}
+
+.detail-cover img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.detail-cover-empty{
+  width:100%;
+  height:100%;
+  display:grid;
+  place-items:center;
+  color:var(--text-faint);
+  font-size:9px;
+}
+
+.detail-info{
+  min-width:0;
+  padding-top:4px;
+}
+
+.detail-title{
+  font-size:18px;
+  line-height:1.45;
+}
+
+.detail-subtitle{
+  margin-top:6px;
+  color:var(--text-muted);
+  font-size:12px;
+}
+
+.detail-rating{
+  margin-top:10px;
+  color:var(--accent);
+  letter-spacing:1px;
+}
+
+.detail-meta{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  margin:18px 0;
+  padding:12px 0;
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  color:var(--text-muted);
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+}
+
+.detail-memo{
+  min-height:74px;
+  color:var(--text-soft);
+  white-space:pre-wrap;
+  font-size:13px;
+  line-height:1.75;
+}
+
+/* DATA MODAL */
+
+.data-area{
+  width:100%;
+  min-height:180px;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#03070a;
+  color:var(--text-soft);
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  line-height:1.55;
+  resize:vertical;
+  outline:none;
+}
+
+
+
+.auth-area{
+  display:flex;
+  align-items:center;
+  gap:9px;
+}
+
+.sync-status{
+  max-width:210px;
+  color:var(--text-muted);
+  font-family:'JetBrains Mono',monospace;
+  font-size:9.5px;
+  line-height:1.35;
+  text-align:right;
+}
+
+.auth-btn{
+  min-height:38px;
+  padding:0 13px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:rgba(7,12,18,.88);
+  color:var(--text-soft);
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;
+  cursor:pointer;
+  transition:.22s ease;
+}
+
+.auth-btn:hover{
+  color:var(--accent);
+  border-color:var(--line-bright);
+  box-shadow:0 0 18px var(--accent-glow);
+}
+
+.auth-btn.signed-in{
+  color:var(--accent);
+}
+
+.loading-state{
+  grid-column:1 / -1;
+  padding:90px 24px;
+  text-align:center;
+  color:var(--text-muted);
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  letter-spacing:.7px;
+}
+
+@media (max-width:620px){
+  .app{
+    padding:28px 16px 110px;
+  }
+
+  .brand-title{
+    font-size:18px;
+  }
+
+  .brand-sub{
+    font-size:8.5px;
+  }
+
+  .header{
+    align-items:center;
+  }
+
+  .sync-status{
+    display:none;
+  }
+
+  .auth-btn{
+    padding:0 10px;
+    font-size:9px;
+  }
+
+  .grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:13px;
+  }
+
+  .toolbar,
+  .left-tools{
+    align-items:stretch;
+  }
+
+  .left-tools{
+    width:100%;
+    flex-direction:column;
+  }
+
+  .search-box{
+    max-width:none;
+  }
+
+  .sort-select{
+    width:100%;
+  }
+
+  .row{
+    grid-template-columns:1fr;
+  }
+
+  .panel{
+    padding:23px 19px;
+  }
+
+  .fab{
+    width:54px;
+    height:54px;
+    right:20px;
+    bottom:22px;
+  }
+}
+</style>
+</head>
+
+<body>
+<main class="app">
+  <header class="header">
+    <div class="brand">
+      <div class="brand-title">SIGNAL <span>LOG</span></div>
+      <div class="brand-sub">PERSONAL VIEWING &amp; READING ARCHIVE</div>
+    </div>
+
+    <div class="header-actions auth-area">
+      <div class="sync-status" id="syncStatus">로그인하면 기록이 Firebase에 동기화됩니다.</div>
+      <button class="auth-btn" id="authBtn" type="button">GOOGLE LOGIN</button>
+      <button class="icon-btn" id="dataBtn" title="백업 및 복원">↕</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-type="movie">MOVIE</button>
+    <button class="tab" data-type="book">BOOK</button>
+  </nav>
+
+  <div class="signal-divider" aria-hidden="true">
+    <div class="signal-fade signal-fade-left"></div>
+    <svg viewBox="0 0 1000 32" preserveAspectRatio="none">
+      <path class="signal-base" d="M0 16 H1000"></path>
+      <path class="signal-glow" id="signalGlow"
+        d="M0 16
+           H150
+           C175 16, 185 15, 205 16
+           C220 17, 226 16, 238 16
+           L254 16
+           L265 8
+           L276 24
+           L289 4
+           L302 27
+           L314 12
+           L326 16
+           H470
+           C500 16, 520 14, 548 16
+           C575 18, 590 16, 620 16
+           H1000"></path>
+      <path class="signal-main" id="signalMain"
+        d="M0 16
+           H150
+           C175 16, 185 15, 205 16
+           C220 17, 226 16, 238 16
+           L254 16
+           L265 8
+           L276 24
+           L289 4
+           L302 27
+           L314 12
+           L326 16
+           H470
+           C500 16, 520 14, 548 16
+           C575 18, 590 16, 620 16
+           H1000"></path>
+    </svg>
+    <div class="signal-fade signal-fade-right"></div>
+  </div>
+
+  <section class="toolbar">
+    <div class="left-tools">
+      <div class="count" id="countLabel">0 ENTRIES</div>
+
+      <div class="search-box">
+        <input id="archiveSearch" type="text" placeholder="저장된 기록 검색">
+        <span>⌕</span>
+      </div>
+    </div>
+
+    <select class="sort-select" id="sortSelect">
+      <option value="date">최신 기록순</option>
+      <option value="rating">평점순</option>
+      <option value="title">제목순</option>
+      <option value="created">최근 추가순</option>
+    </select>
+  </section>
+
+  <section class="grid" id="grid"></section>
+</main>
+
+<button class="fab" id="addBtn" aria-label="새 기록 추가">+</button>
+
+<!-- ADD / EDIT -->
+<div class="overlay" id="entryOverlay">
+  <section class="panel">
+    <button class="close" data-close>✕</button>
+    <div class="panel-title" id="entryPanelTitle">NEW MOVIE ENTRY</div>
+
+    <div class="field">
+      <label>저장된 작품 검색</label>
+      <input type="text" id="localSearch" placeholder="이전에 등록한 제목 검색">
+      <div class="local-results" id="localResults"></div>
+      <div class="hint">
+        이전에 등록한 작품은 여기서 다시 찾을 수 있습니다.
+      </div>
+    </div>
+
+    <div class="divider">OR NEW ENTRY</div>
+
+    <div class="field">
+      <label>제목 *</label>
+      <input type="text" id="titleInput" placeholder="작품 제목">
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label id="creatorLabel">감독</label>
+        <input type="text" id="creatorInput" placeholder="선택 입력">
+      </div>
+
+      <div class="field">
+        <label>발표 연도</label>
+        <input type="text" id="yearInput" inputmode="numeric" maxlength="4" placeholder="예: 2026">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>포스터 / 표지 이미지</label>
+      <label class="upload-box" for="imageInput">
+        <input type="file" id="imageInput" accept="image/*">
+        <div class="upload-placeholder" id="uploadPlaceholder">
+          이미지 파일을 눌러 선택하세요.<br>
+          이미지는 이 브라우저에 저장됩니다.
+        </div>
+        <img class="upload-preview" id="imagePreview" alt="">
+      </label>
+      <div class="hint">
+        큰 이미지는 자동으로 축소하여 저장합니다. 브라우저 저장 공간을 줄이기 위해 권장 크기는 2MB 이하입니다.
+      </div>
+    </div>
+
+    <div class="field">
+      <label>평점</label>
+      <div class="stars" id="starPicker">
+        <button type="button" data-rating="1">★</button>
+        <button type="button" data-rating="2">★</button>
+        <button type="button" data-rating="3">★</button>
+        <button type="button" data-rating="4">★</button>
+        <button type="button" data-rating="5">★</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label id="dateLabel">관람일</label>
+      <input type="date" id="dateInput">
+    </div>
+
+    <div class="field">
+      <label>감상 메모</label>
+      <textarea id="memoInput" placeholder="기억하고 싶은 장면, 문장, 감상을 기록하세요."></textarea>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-ghost" data-close>취소</button>
+      <button class="btn btn-primary" id="saveBtn">기록 저장</button>
+    </div>
+  </section>
+</div>
+
+<!-- DETAIL -->
+<div class="overlay" id="detailOverlay">
+  <section class="panel">
+    <button class="close" data-close>✕</button>
+
+    <div class="detail-head">
+      <div class="detail-cover" id="detailCover"></div>
+
+      <div class="detail-info">
+        <h2 class="detail-title" id="detailTitle"></h2>
+        <div class="detail-subtitle" id="detailSubtitle"></div>
+        <div class="detail-rating" id="detailRating"></div>
+      </div>
+    </div>
+
+    <div class="detail-meta" id="detailMeta"></div>
+    <div class="detail-memo" id="detailMemo"></div>
+
+    <div class="actions">
+      <button class="btn btn-danger" id="deleteBtn">삭제</button>
+      <button class="btn btn-ghost" id="editBtn">수정</button>
+      <button class="btn btn-primary" data-close>닫기</button>
+    </div>
+  </section>
+</div>
+
+<!-- BACKUP -->
+<div class="overlay" id="dataOverlay">
+  <section class="panel">
+    <button class="close" data-close>✕</button>
+    <div class="panel-title">DATA BACKUP</div>
+
+    <div class="field">
+      <label>백업 데이터</label>
+      <textarea class="data-area" id="dataArea" spellcheck="false"></textarea>
+      <div class="hint">
+        내보내기 버튼을 누르면 전체 기록이 JSON 파일로 저장됩니다. 다른 기기에서는 해당 파일을 불러오면 됩니다.
+      </div>
+    </div>
+
+    <input type="file" id="importInput" accept=".json,application/json" hidden>
+
+    <div class="actions">
+      <button class="btn btn-ghost" id="importBtn">불러오기</button>
+      <button class="btn btn-primary" id="exportBtn">내보내기</button>
+    </div>
+  </section>
+</div>
+
+<script type="module">
+'use strict';
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  getDocs,
+  onSnapshot,
+  query,
+  orderBy,
+  writeBatch
+} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject
+} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCGKV9RMw_Y7m24zgZxR5fOSgWi_fIMe3c",
+  authDomain: "mb-signal-log.firebaseapp.com",
+  projectId: "mb-signal-log",
+  storageBucket: "mb-signal-log.firebasestorage.app",
+  messagingSenderId: "509673349327",
+  appId: "1:509673349327:web:3f986e5729034e9133d7ba",
+  measurementId: "G-GJ5ZJ85GBF"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: 'select_account' });
+
+const STORE_KEY = 'signal-log-entries-v2';
+const MIGRATION_KEY = 'signal-log-firebase-migrated-v1';
+
+const state = {
+  type: 'movie',
+  entries: [],
+  sort: 'date',
+  search: '',
+  rating: 0,
+  imageData: '',
+  imageFile: null,
+  editingId: null,
+  detailId: null,
+  user: null,
+  loading: true,
+  unsubscribeEntries: null,
+  migrationRunning: false
+};
+
+const $ = selector => document.querySelector(selector);
+const $$ = selector => [...document.querySelectorAll(selector)];
+
+const grid = $('#grid');
+const countLabel = $('#countLabel');
+const archiveSearch = $('#archiveSearch');
+const sortSelect = $('#sortSelect');
+const authBtn = $('#authBtn');
+const syncStatus = $('#syncStatus');
+
+const entryOverlay = $('#entryOverlay');
+const detailOverlay = $('#detailOverlay');
+const dataOverlay = $('#dataOverlay');
+
+const titleInput = $('#titleInput');
+const creatorInput = $('#creatorInput');
+const yearInput = $('#yearInput');
+const imageInput = $('#imageInput');
+const imagePreview = $('#imagePreview');
+const uploadPlaceholder = $('#uploadPlaceholder');
+const dateInput = $('#dateInput');
+const memoInput = $('#memoInput');
+const localSearch = $('#localSearch');
+const localResults = $('#localResults');
+
+function escapeHTML(value=''){
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;'
+  })[char]);
+}
+
+function todayLocal(){
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  return new Date(now.getTime() - offset * 60000).toISOString().slice(0,10);
+}
+
+function createId(){
+  return window.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function entriesCollection(){
+  if(!state.user) throw new Error('로그인이 필요합니다.');
+  return collection(db, 'users', state.user.uid, 'entries');
+}
+
+function entryDocument(id){
+  if(!state.user) throw new Error('로그인이 필요합니다.');
+  return doc(db, 'users', state.user.uid, 'entries', id);
+}
+
+function setSyncStatus(message, isError=false){
+  syncStatus.textContent = message;
+  syncStatus.style.color = isError ? 'var(--danger)' : '';
+}
+
+// 로그인 실패 원인을 사람이 읽을 수 있는 한국어 메시지로 변환합니다.
+// (콘솔 설정 문제인지 코드 문제인지 바로 구분하기 위한 용도)
+function describeAuthError(error){
+  const code = error?.code || '';
+  const map = {
+    'auth/operation-not-allowed': 'Firebase 콘솔 > Authentication > Sign-in method에서 Google 로그인이 아직 활성화되지 않았습니다. 콘솔에서 활성화해주세요.',
+    'auth/unauthorized-domain': `현재 도메인(${location.hostname})이 Firebase 콘솔 > Authentication > Settings > 승인된 도메인 목록에 없습니다. 도메인을 추가해주세요.`,
+    'auth/popup-blocked': '브라우저가 로그인 팝업을 차단했습니다. 팝업 차단을 해제하거나, 잠시 후 리디렉션 방식으로 다시 시도합니다.',
+    'auth/popup-closed-by-user': '',
+    'auth/cancelled-popup-request': '',
+    'auth/network-request-failed': '네트워크 연결을 확인해주세요.',
+    'auth/internal-error': 'Firebase 설정(승인된 도메인, OAuth 클라이언트 설정)을 확인해주세요.'
+  };
+  return Object.prototype.hasOwnProperty.call(map, code) ? map[code] : `로그인에 실패했습니다. (${code || error?.message || '알 수 없는 오류'})`;
+}
+
+function requireLogin(){
+  if(state.user) return true;
+  alert('Google 계정으로 로그인한 뒤 사용할 수 있습니다.');
+  return false;
+}
+
+function openOverlay(overlay){
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeOverlay(overlay){
+  overlay.classList.remove('open');
+  if(!document.querySelector('.overlay.open')) document.body.style.overflow = '';
+}
+
+function starsText(rating){
+  const n = Math.max(0, Math.min(5, Number(rating) || 0));
+  return '★'.repeat(n) + '☆'.repeat(5 - n);
+}
+
+function typeLabel(type){ return type === 'movie' ? '관람일' : '완독일'; }
+
+function filteredEntries(){
+  let list = state.entries.filter(entry => entry.type === state.type);
+  const q = state.search.trim().toLowerCase();
+
+  if(q){
+    list = list.filter(entry => [entry.title, entry.creator, entry.year, entry.memo, entry.date]
+      .join(' ').toLowerCase().includes(q));
+  }
+
+  list = [...list];
+  if(state.sort === 'date') list.sort((a,b) => String(b.date || '').localeCompare(String(a.date || '')) || Number(b.createdAt || 0) - Number(a.createdAt || 0));
+  if(state.sort === 'rating') list.sort((a,b) => Number(b.rating || 0) - Number(a.rating || 0) || String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
+  if(state.sort === 'title') list.sort((a,b) => String(a.title || '').localeCompare(String(b.title || ''), 'ko'));
+  if(state.sort === 'created') list.sort((a,b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+  return list;
+}
+
+function render(){
+  if(state.loading){
+    countLabel.textContent = 'SYNCING';
+    grid.innerHTML = '<div class="loading-state">FIREBASE 연결 상태를 확인하고 있습니다...</div>';
+    return;
+  }
+
+  if(!state.user){
+    countLabel.textContent = '0 ENTRIES';
+    grid.innerHTML = `
+      <div class="empty">
+        <div class="empty-code">// AUTH REQUIRED</div>
+        <p>오른쪽 위의 GOOGLE LOGIN 버튼으로 로그인하면 기록이 Firebase에 저장되고 다른 기기에서도 이어서 볼 수 있습니다.</p>
+      </div>`;
+    return;
+  }
+
+  const list = filteredEntries();
+  const total = state.entries.filter(entry => entry.type === state.type).length;
+  countLabel.textContent = state.search ? `${list.length} / ${total} ENTRIES` : `${total} ENTRIES`;
+
+  if(list.length === 0){
+    const label = state.type === 'movie' ? '영화' : '책';
+    grid.innerHTML = `
+      <div class="empty">
+        <div class="empty-code">// NO SIGNAL</div>
+        <p>${state.search ? '검색 결과가 없습니다.' : `아직 기록한 ${label}이 없습니다. 오른쪽 아래의 + 버튼을 눌러 첫 기록을 추가해보세요.`}</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = list.map((entry,index) => `
+    <article class="card" data-id="${escapeHTML(entry.id)}" style="animation-delay:${Math.min(index * 35, 420)}ms">
+      <div class="poster">
+        ${entry.image ? `<img src="${escapeHTML(entry.image)}" alt="${escapeHTML(entry.title)}">` : `<div class="poster-empty">NO IMAGE<br>${escapeHTML(entry.title)}</div>`}
+      </div>
+      <div class="card-info">
+        <div class="card-title">${escapeHTML(entry.title)}</div>
+        <div class="card-subtitle">${escapeHTML([entry.creator, entry.year].filter(Boolean).join(' · ') || (entry.type === 'movie' ? '감독 정보 없음' : '저자 정보 없음'))}</div>
+        <div class="card-bottom"><span class="rating">${starsText(entry.rating)}</span><span>${escapeHTML(entry.date || '')}</span></div>
+      </div>
+    </article>`).join('');
+
+  $$('.card').forEach(card => card.addEventListener('click', () => openDetail(card.dataset.id)));
+}
+
+function subscribeToEntries(){
+  if(state.unsubscribeEntries){
+    state.unsubscribeEntries();
+    state.unsubscribeEntries = null;
+  }
+
+  if(!state.user){
+    state.entries = [];
+    state.loading = false;
+    render();
+    return;
+  }
+
+  state.loading = true;
+  render();
+  const q = query(entriesCollection(), orderBy('createdAt', 'desc'));
+
+  state.unsubscribeEntries = onSnapshot(q, snapshot => {
+    state.entries = snapshot.docs.map(item => ({ id:item.id, ...item.data() }));
+    state.loading = false;
+    setSyncStatus(`${state.user.displayName || state.user.email} · ${state.entries.length}개 동기화됨`);
+    render();
+    maybeMigrateLocalEntries();
+  }, error => {
+    console.error(error);
+    state.loading = false;
+    setSyncStatus('Firestore 연결 실패: 규칙과 데이터베이스 설정을 확인하세요.', true);
+    render();
+  });
+}
+
+// 페이지가 로드될 때, 리디렉션 로그인에서 돌아온 결과가 있는지 먼저 확인합니다.
+// 이 처리가 없으면 signInWithRedirect로 로그인해도 로그인이 완료되지 않습니다.
+getRedirectResult(auth).catch(error => {
+  console.error('리디렉션 로그인 처리 오류:', error);
+  const message = describeAuthError(error);
+  if(message) setSyncStatus(message, true);
+});
+
+async function handleAuth(){
+  try{
+    if(state.user){
+      await signOut(auth);
+      return;
+    }
+
+    try{
+      await signInWithPopup(auth, provider);
+    }catch(popupError){
+      console.error('팝업 로그인 실패:', popupError);
+
+      // 팝업이 막혔거나 팝업 방식을 지원하지 않는 환경이면 리디렉션 방식으로 재시도합니다.
+      const fallbackCodes = [
+        'auth/popup-blocked',
+        'auth/operation-not-supported-in-this-environment',
+        'auth/web-storage-unsupported'
+      ];
+
+      if(fallbackCodes.includes(popupError.code)){
+        setSyncStatus('팝업이 차단되어 리디렉션 방식으로 다시 시도합니다...');
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+
+      if(popupError.code === 'auth/popup-closed-by-user' || popupError.code === 'auth/cancelled-popup-request'){
+        return; // 사용자가 스스로 닫은 경우는 에러 알림을 띄우지 않습니다.
+      }
+
+      const message = describeAuthError(popupError);
+      setSyncStatus(message, true);
+      alert(message);
+    }
+  }catch(error){
+    console.error('로그인 처리 중 오류:', error);
+    const message = describeAuthError(error);
+    setSyncStatus(message, true);
+    alert(message);
+  }
+}
+
+function resetEntryForm(){
+  state.rating = 0;
+  state.imageData = '';
+  state.imageFile = null;
+  state.editingId = null;
+  titleInput.value = '';
+  creatorInput.value = '';
+  yearInput.value = '';
+  imageInput.value = '';
+  dateInput.value = todayLocal();
+  memoInput.value = '';
+  localSearch.value = '';
+  localResults.innerHTML = '';
+  imagePreview.removeAttribute('src');
+  imagePreview.style.display = 'none';
+  uploadPlaceholder.style.display = 'block';
+  renderStarPicker();
+}
+
+function configureEntryLabels(){
+  const isMovie = state.type === 'movie';
+  $('#entryPanelTitle').textContent = state.editingId ? (isMovie ? 'EDIT MOVIE ENTRY' : 'EDIT BOOK ENTRY') : (isMovie ? 'NEW MOVIE ENTRY' : 'NEW BOOK ENTRY');
+  $('#creatorLabel').textContent = isMovie ? '감독' : '저자';
+  creatorInput.placeholder = isMovie ? '감독 이름' : '저자 이름';
+  $('#dateLabel').textContent = isMovie ? '관람일' : '완독일';
+}
+
+function openNewEntry(){
+  if(!requireLogin()) return;
+  resetEntryForm();
+  configureEntryLabels();
+  openOverlay(entryOverlay);
+  setTimeout(() => titleInput.focus(), 160);
+}
+
+function renderStarPicker(){
+  $$('#starPicker button').forEach(button => button.classList.toggle('on', Number(button.dataset.rating) <= state.rating));
+}
+
+function setImagePreview(dataUrl){
+  state.imageData = dataUrl || '';
+  if(state.imageData){
+    imagePreview.src = state.imageData;
+    imagePreview.style.display = 'block';
+    uploadPlaceholder.style.display = 'none';
+  }else{
+    imagePreview.removeAttribute('src');
+    imagePreview.style.display = 'none';
+    uploadPlaceholder.style.display = 'block';
+  }
+}
+
+function resizeImage(file, maxWidth=700, maxHeight=1050, quality=.82){
+  return new Promise((resolve,reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('이미지를 읽지 못했습니다.'));
+    reader.onload = event => {
+      const image = new Image();
+      image.onerror = () => reject(new Error('지원하지 않는 이미지 형식입니다.'));
+      image.onload = () => {
+        let width = image.width;
+        let height = image.height;
+        const scale = Math.min(1, maxWidth / width, maxHeight / height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(image,0,0,width,height);
+        canvas.toBlob(blob => blob ? resolve({ blob, preview:URL.createObjectURL(blob) }) : reject(new Error('이미지를 변환하지 못했습니다.')), 'image/jpeg', quality);
+      };
+      image.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadCover(blob, entryId){
+  const path = `users/${state.user.uid}/covers/${entryId}-${Date.now()}.jpg`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, blob, { contentType:'image/jpeg' });
+  return { image:await getDownloadURL(storageRef), imagePath:path };
+}
+
+async function removeStoredImage(path){
+  if(!path) return;
+  try{ await deleteObject(ref(storage, path)); }
+  catch(error){ if(error.code !== 'storage/object-not-found') console.warn(error); }
+}
+
+function renderLocalResults(){
+  const q = localSearch.value.trim().toLowerCase();
+  if(!q){ localResults.innerHTML = ''; return; }
+
+  const unique = [];
+  const seen = new Set();
+  state.entries.filter(entry => entry.type === state.type)
+    .filter(entry => `${entry.title} ${entry.creator || ''} ${entry.year || ''}`.toLowerCase().includes(q))
+    .forEach(entry => {
+      const key = `${entry.title}|${entry.creator || ''}|${entry.year || ''}`.toLowerCase();
+      if(!seen.has(key)){ seen.add(key); unique.push(entry); }
+    });
+
+  if(unique.length === 0){
+    localResults.innerHTML = '<div class="hint">이전에 등록한 작품이 없습니다. 아래에서 새 작품으로 입력하세요.</div>';
+    return;
+  }
+
+  localResults.innerHTML = unique.slice(0,6).map(entry => `
+    <div class="local-result" data-id="${escapeHTML(entry.id)}">
+      ${entry.image ? `<img class="local-thumb" src="${escapeHTML(entry.image)}" alt="">` : '<div class="local-thumb"></div>'}
+      <div><div class="local-result-title">${escapeHTML(entry.title)}</div><div class="local-result-sub">${escapeHTML([entry.creator,entry.year].filter(Boolean).join(' · ') || '추가 정보 없음')}</div></div>
+    </div>`).join('');
+
+  $$('.local-result').forEach(result => result.addEventListener('click', () => {
+    const source = state.entries.find(entry => entry.id === result.dataset.id);
+    if(!source) return;
+    titleInput.value = source.title || '';
+    creatorInput.value = source.creator || '';
+    yearInput.value = source.year || '';
+    state.imageFile = null;
+    setImagePreview(source.image || '');
+    localSearch.value = '';
+    localResults.innerHTML = '';
+    titleInput.focus();
+  }));
+}
+
+async function saveEntry(){
+  if(!requireLogin()) return;
+  const title = titleInput.value.trim();
+  if(!title){ alert('제목을 입력해주세요.'); titleInput.focus(); return; }
+
+  const saveBtn = $('#saveBtn');
+  const previous = state.entries.find(entry => entry.id === state.editingId);
+  const id = previous?.id || createId();
+  saveBtn.disabled = true;
+  saveBtn.textContent = '저장 중...';
+  setSyncStatus('Firebase에 저장 중...');
+
+  try{
+    let image = previous?.image || '';
+    let imagePath = previous?.imagePath || '';
+
+    if(state.imageFile){
+      const uploaded = await uploadCover(state.imageFile, id);
+      if(imagePath) await removeStoredImage(imagePath);
+      image = uploaded.image;
+      imagePath = uploaded.imagePath;
+    }else if(!state.imageData && imagePath){
+      await removeStoredImage(imagePath);
+      image = '';
+      imagePath = '';
+    }
+
+    const entry = {
+      type: previous?.type || state.type,
+      title,
+      creator: creatorInput.value.trim(),
+      year: yearInput.value.trim(),
+      image,
+      imagePath,
+      rating: state.rating,
+      date: dateInput.value,
+      memo: memoInput.value.trim(),
+      createdAt: previous?.createdAt || Date.now(),
+      updatedAt: Date.now()
+    };
+
+    await setDoc(entryDocument(id), entry);
+    closeOverlay(entryOverlay);
+  }catch(error){
+    console.error(error);
+    setSyncStatus('저장 실패', true);
+    alert('Firebase 저장에 실패했습니다. Firestore·Storage 설정과 보안 규칙을 확인해주세요.');
+  }finally{
+    saveBtn.disabled = false;
+    saveBtn.textContent = '기록 저장';
+  }
+}
+
+function openDetail(id){
+  const entry = state.entries.find(item => item.id === id);
+  if(!entry) return;
+  state.detailId = id;
+  $('#detailCover').innerHTML = entry.image ? `<img src="${escapeHTML(entry.image)}" alt="${escapeHTML(entry.title)}">` : '<div class="detail-cover-empty">NO IMAGE</div>';
+  $('#detailTitle').textContent = entry.title;
+  $('#detailSubtitle').textContent = [entry.creator, entry.year].filter(Boolean).join(' · ') || (entry.type === 'movie' ? '감독 정보 없음' : '저자 정보 없음');
+  $('#detailRating').textContent = starsText(entry.rating);
+  $('#detailMeta').innerHTML = `<span>${typeLabel(entry.type)}: ${escapeHTML(entry.date || '-')}</span><span>${entry.type === 'movie' ? 'MOVIE' : 'BOOK'}</span>`;
+  $('#detailMemo').textContent = entry.memo || '(메모 없음)';
+  openOverlay(detailOverlay);
+}
+
+function openEdit(){
+  const entry = state.entries.find(item => item.id === state.detailId);
+  if(!entry) return;
+  closeOverlay(detailOverlay);
+  state.type = entry.type;
+  state.editingId = entry.id;
+  state.rating = Number(entry.rating) || 0;
+  state.imageFile = null;
+  titleInput.value = entry.title || '';
+  creatorInput.value = entry.creator || '';
+  yearInput.value = entry.year || '';
+  dateInput.value = entry.date || todayLocal();
+  memoInput.value = entry.memo || '';
+  localSearch.value = '';
+  localResults.innerHTML = '';
+  setImagePreview(entry.image || '');
+  renderStarPicker();
+  configureEntryLabels();
+  syncTabs();
+  openOverlay(entryOverlay);
+}
+
+async function deleteEntry(){
+  const entry = state.entries.find(item => item.id === state.detailId);
+  if(!entry || !confirm(`"${entry.title}" 기록을 삭제할까요?`)) return;
+  try{
+    await deleteDoc(entryDocument(entry.id));
+    await removeStoredImage(entry.imagePath);
+    closeOverlay(detailOverlay);
+  }catch(error){
+    console.error(error);
+    alert('삭제에 실패했습니다.');
+  }
+}
+
+function syncTabs(){
+  $$('.tab').forEach(tab => tab.classList.toggle('active', tab.dataset.type === state.type));
+}
+
+function openDataPanel(){
+  if(!requireLogin()) return;
+  $('#dataArea').value = JSON.stringify({ app:'SIGNAL LOG', version:3, exportedAt:new Date().toISOString(), entries:state.entries },null,2);
+  openOverlay(dataOverlay);
+}
+
+function exportData(){
+  const payload = { app:'SIGNAL LOG', version:3, exportedAt:new Date().toISOString(), entries:state.entries };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `signal-log-backup-${todayLocal()}.json`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function importData(file){
+  if(!requireLogin()) return;
+  const reader = new FileReader();
+  reader.onerror = () => alert('파일을 읽지 못했습니다.');
+  reader.onload = async event => {
+    try{
+      const parsed = JSON.parse(event.target.result);
+      const entries = Array.isArray(parsed) ? parsed : parsed.entries;
+      if(!Array.isArray(entries)) throw new Error('entries 배열이 없습니다.');
+      const validEntries = entries.filter(entry => entry && typeof entry === 'object' && (entry.type === 'movie' || entry.type === 'book') && typeof entry.title === 'string');
+      if(!confirm(`Firebase의 현재 기록 ${state.entries.length}개를 지우고, 백업 기록 ${validEntries.length}개로 바꿀까요?`)) return;
+
+      setSyncStatus('백업 데이터를 Firebase에 적용 중...');
+      const existing = await getDocs(entriesCollection());
+      for(let i=0; i<existing.docs.length; i+=400){
+        const batch = writeBatch(db);
+        existing.docs.slice(i,i+400).forEach(item => batch.delete(item.ref));
+        await batch.commit();
+      }
+
+      for(let i=0; i<validEntries.length; i+=400){
+        const batch = writeBatch(db);
+        validEntries.slice(i,i+400).forEach(raw => {
+          const id = raw.id || createId();
+          const { id:ignored, ...entry } = raw;
+          batch.set(entryDocument(id), { ...entry, createdAt:Number(entry.createdAt) || Date.now(), updatedAt:Date.now() });
+        });
+        await batch.commit();
+      }
+      alert('Firebase 기록을 복원했습니다.');
+    }catch(error){
+      console.error(error);
+      alert('올바른 SIGNAL LOG 백업 파일이 아니거나 Firebase 적용에 실패했습니다.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function dataUrlToBlob(dataUrl){
+  const [meta, data] = dataUrl.split(',');
+  const mime = meta.match(/data:(.*?);/)?.[1] || 'image/jpeg';
+  const bytes = atob(data);
+  const array = new Uint8Array(bytes.length);
+  for(let i=0;i<bytes.length;i++) array[i] = bytes.charCodeAt(i);
+  return new Blob([array], {type:mime});
+}
+
+async function maybeMigrateLocalEntries(){
+  if(!state.user || state.migrationRunning || localStorage.getItem(MIGRATION_KEY) === state.user.uid) return;
+  let localEntries = [];
+  try{ localEntries = JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }catch{}
+  if(!Array.isArray(localEntries) || localEntries.length === 0){
+    localStorage.setItem(MIGRATION_KEY, state.user.uid);
+    return;
+  }
+
+  const confirmed = confirm(`이 브라우저에 저장된 기존 기록 ${localEntries.length}개를 Firebase 계정으로 옮길까요?`);
+  if(!confirmed){ localStorage.setItem(MIGRATION_KEY, state.user.uid); return; }
+
+  state.migrationRunning = true;
+  setSyncStatus(`기존 기록 ${localEntries.length}개 이전 중...`);
+  try{
+    for(const raw of localEntries){
+      const id = raw.id || createId();
+      let image = '';
+      let imagePath = '';
+      if(typeof raw.image === 'string' && raw.image.startsWith('data:image/')){
+        const uploaded = await uploadCover(dataUrlToBlob(raw.image), id);
+        image = uploaded.image;
+        imagePath = uploaded.imagePath;
+      }else if(typeof raw.image === 'string'){
+        image = raw.image;
+      }
+      const { id:ignored, ...rest } = raw;
+      await setDoc(entryDocument(id), {
+        ...rest,
+        image,
+        imagePath,
+        createdAt:Number(raw.createdAt) || Date.now(),
+        updatedAt:Date.now()
+      });
+    }
+    localStorage.setItem(MIGRATION_KEY, state.user.uid);
+    alert('기존 브라우저 기록을 Firebase로 옮겼습니다.');
+  }catch(error){
+    console.error(error);
+    alert('기존 기록 이전 중 일부 오류가 발생했습니다. 다시 로그인하면 재시도할 수 있습니다.');
+  }finally{
+    state.migrationRunning = false;
+  }
+}
+
+$$('.tab').forEach(tab => tab.addEventListener('click', () => {
+  state.type = tab.dataset.type;
+  state.search = '';
+  archiveSearch.value = '';
+  syncTabs();
+  render();
+}));
+
+archiveSearch.addEventListener('input', () => { state.search = archiveSearch.value; render(); });
+sortSelect.addEventListener('change', () => { state.sort = sortSelect.value; render(); });
+authBtn.addEventListener('click', handleAuth);
+$('#addBtn').addEventListener('click', openNewEntry);
+$('#saveBtn').addEventListener('click', saveEntry);
+$('#editBtn').addEventListener('click', openEdit);
+$('#deleteBtn').addEventListener('click', deleteEntry);
+localSearch.addEventListener('input', renderLocalResults);
+
+$$('#starPicker button').forEach(button => button.addEventListener('click', () => {
+  state.rating = Number(button.dataset.rating);
+  renderStarPicker();
+}));
+
+imageInput.addEventListener('change', async () => {
+  const file = imageInput.files?.[0];
+  if(!file) return;
+  if(!file.type.startsWith('image/')){
+    alert('이미지 파일만 선택할 수 있습니다.');
+    imageInput.value = '';
+    return;
+  }
+  try{
+    const result = await resizeImage(file);
+    state.imageFile = result.blob;
+    setImagePreview(result.preview);
+  }catch(error){
+    console.error(error);
+    alert(error.message || '이미지를 처리하지 못했습니다.');
+  }
+});
+
+yearInput.addEventListener('input', () => { yearInput.value = yearInput.value.replace(/\D/g,'').slice(0,4); });
+$('#dataBtn').addEventListener('click', openDataPanel);
+$('#exportBtn').addEventListener('click', exportData);
+$('#importBtn').addEventListener('click', () => $('#importInput').click());
+$('#importInput').addEventListener('change', () => {
+  const file = $('#importInput').files?.[0];
+  if(file) importData(file);
+  $('#importInput').value = '';
+});
+
+$$('[data-close]').forEach(button => button.addEventListener('click', event => {
+  const overlay = event.target.closest('.overlay');
+  if(overlay) closeOverlay(overlay);
+}));
+
+$$('.overlay').forEach(overlay => overlay.addEventListener('click', event => {
+  if(event.target === overlay) closeOverlay(overlay);
+}));
+
+document.addEventListener('keydown', event => {
+  if(event.key !== 'Escape') return;
+  const openOverlays = $$('.overlay.open');
+  if(openOverlays.length) closeOverlay(openOverlays[openOverlays.length - 1]);
+});
+
+onAuthStateChanged(auth, user => {
+  state.user = user;
+  state.loading = true;
+  authBtn.textContent = user ? 'LOGOUT' : 'GOOGLE LOGIN';
+  authBtn.classList.toggle('signed-in', Boolean(user));
+  setSyncStatus(user ? `${user.displayName || user.email} · 연결 중...` : '로그인하면 기록이 Firebase에 동기화됩니다.');
+  subscribeToEntries();
+});
+
+dateInput.value = todayLocal();
+syncTabs();
+render();
+</script>
+
+</body>
+</html>
