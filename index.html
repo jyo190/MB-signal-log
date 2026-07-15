@@ -1147,12 +1147,12 @@ button{
         <input type="file" id="imageInput" accept="image/*">
         <div class="upload-placeholder" id="uploadPlaceholder">
           이미지 파일을 눌러 선택하세요.<br>
-          이미지는 이 브라우저에 저장됩니다.
+          이미지는 압축되어 Firestore 기록에 함께 저장됩니다.
         </div>
         <img class="upload-preview" id="imagePreview" alt="">
       </label>
       <div class="hint">
-        큰 이미지는 자동으로 축소하여 저장합니다. 브라우저 저장 공간을 줄이기 위해 권장 크기는 2MB 이하입니다.
+        큰 이미지는 자동으로 축소하여 저장합니다. Firestore 용량을 줄이기 위해 이미지가 360×540 크기의 JPEG로 자동 압축됩니다.
       </div>
     </div>
 
@@ -1258,13 +1258,6 @@ import {
   orderBy,
   writeBatch
 } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
-import {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL,
-  deleteObject
-} from "https://www.gstatic.com/firebasejs/12.16.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCGKV9RMw_Y7m24zgZxR5fOSgWi_fIMe3c",
@@ -1279,7 +1272,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: 'select_account' });
 
@@ -1592,7 +1584,7 @@ function setImagePreview(dataUrl){
   }
 }
 
-function resizeImage(file, maxWidth=700, maxHeight=1050, quality=.82){
+function resizeImage(file, maxWidth=360, maxHeight=540, quality=.62){
   return new Promise((resolve,reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('이미지를 읽지 못했습니다.'));
@@ -1603,13 +1595,27 @@ function resizeImage(file, maxWidth=700, maxHeight=1050, quality=.82){
         let width = image.width;
         let height = image.height;
         const scale = Math.min(1, maxWidth / width, maxHeight / height);
-        width = Math.round(width * scale);
-        height = Math.round(height * scale);
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
-        canvas.getContext('2d').drawImage(image,0,0,width,height);
-        canvas.toBlob(blob => blob ? resolve({ blob, preview:URL.createObjectURL(blob) }) : reject(new Error('이미지를 변환하지 못했습니다.')), 'image/jpeg', quality);
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#05090d';
+        context.fillRect(0, 0, width, height);
+        context.drawImage(image, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        const approxBytes = Math.ceil((dataUrl.length - dataUrl.indexOf(',') - 1) * 3 / 4);
+
+        // Firestore 문서 최대 크기(1 MiB)보다 충분히 작게 제한합니다.
+        if(approxBytes > 650 * 1024){
+          reject(new Error('압축된 이미지가 너무 큽니다. 더 작은 이미지를 선택해주세요.'));
+          return;
+        }
+
+        resolve(dataUrl);
       };
       image.src = event.target.result;
     };
@@ -1617,17 +1623,16 @@ function resizeImage(file, maxWidth=700, maxHeight=1050, quality=.82){
   });
 }
 
-async function uploadCover(blob, entryId){
-  const path = `users/${state.user.uid}/covers/${entryId}-${Date.now()}.jpg`;
-  const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, blob, { contentType:'image/jpeg' });
-  return { image:await getDownloadURL(storageRef), imagePath:path };
+function withTimeout(promise, ms, message){
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
-async function removeStoredImage(path){
-  if(!path) return;
-  try{ await deleteObject(ref(storage, path)); }
-  catch(error){ if(error.code !== 'storage/object-not-found') console.warn(error); }
+function estimateEntryBytes(entry){
+  return new Blob([JSON.stringify(entry)]).size;
 }
 
 function renderLocalResults(){
@@ -1671,37 +1676,27 @@ function renderLocalResults(){
 async function saveEntry(){
   if(!requireLogin()) return;
   const title = titleInput.value.trim();
-  if(!title){ alert('제목을 입력해주세요.'); titleInput.focus(); return; }
+  if(!title){
+    alert('제목을 입력해주세요.');
+    titleInput.focus();
+    return;
+  }
 
   const saveBtn = $('#saveBtn');
   const previous = state.entries.find(entry => entry.id === state.editingId);
   const id = previous?.id || createId();
+
   saveBtn.disabled = true;
   saveBtn.textContent = '저장 중...';
-  setSyncStatus('Firebase에 저장 중...');
+  setSyncStatus('Firestore에 기록 저장 중...');
 
   try{
-    let image = previous?.image || '';
-    let imagePath = previous?.imagePath || '';
-
-    if(state.imageFile){
-      const uploaded = await uploadCover(state.imageFile, id);
-      if(imagePath) await removeStoredImage(imagePath);
-      image = uploaded.image;
-      imagePath = uploaded.imagePath;
-    }else if(!state.imageData && imagePath){
-      await removeStoredImage(imagePath);
-      image = '';
-      imagePath = '';
-    }
-
     const entry = {
       type: previous?.type || state.type,
       title,
       creator: creatorInput.value.trim(),
       year: yearInput.value.trim(),
-      image,
-      imagePath,
+      image: state.imageData || '',
       rating: state.rating,
       date: dateInput.value,
       memo: memoInput.value.trim(),
@@ -1709,12 +1704,46 @@ async function saveEntry(){
       updatedAt: Date.now()
     };
 
-    await setDoc(entryDocument(id), entry);
+    const entryBytes = estimateEntryBytes(entry);
+    if(entryBytes > 850 * 1024){
+      throw new Error('기록 전체 용량이 너무 큽니다. 이미지 또는 메모의 크기를 줄여주세요.');
+    }
+
+    await withTimeout(
+      setDoc(entryDocument(id), entry),
+      15000,
+      'Firestore 응답이 15초 이상 없습니다. 인터넷 연결과 Firestore 규칙을 확인해주세요.'
+    );
+
+    setSyncStatus('저장 완료 · 동기화 확인 중...');
     closeOverlay(entryOverlay);
+
+    // onSnapshot이 곧 최신 목록을 받아오지만, 사용자가 완료를 즉시 알 수 있게 표시합니다.
+    setTimeout(() => {
+      if(state.user){
+        setSyncStatus(`${state.user.displayName || state.user.email} · 저장 완료`);
+      }
+    }, 500);
   }catch(error){
-    console.error(error);
-    setSyncStatus('저장 실패', true);
-    alert('Firebase 저장에 실패했습니다. Firestore·Storage 설정과 보안 규칙을 확인해주세요.');
+    console.error('Firestore 저장 오류:', error);
+    const code = error?.code || '';
+    let message = error?.message || '알 수 없는 오류가 발생했습니다.';
+
+    if(code === 'permission-denied'){
+      message = 'Firestore 보안 규칙이 현재 사용자 경로의 쓰기를 허용하지 않습니다.';
+    }else if(code === 'unavailable'){
+      message = 'Firestore 서버에 연결할 수 없습니다. 인터넷 연결을 확인해주세요.';
+    }else if(code === 'resource-exhausted'){
+      message = 'Firestore 무료 사용량 또는 저장 용량 한도를 초과했습니다.';
+    }else if(code === 'invalid-argument'){
+      message = '저장 데이터가 너무 크거나 지원되지 않는 값이 포함되어 있습니다.';
+    }
+
+    setSyncStatus(`저장 실패: ${message}`, true);
+    alert(`저장에 실패했습니다.
+
+${message}${code ? `
+(${code})` : ''}`);
   }finally{
     saveBtn.disabled = false;
     saveBtn.textContent = '기록 저장';
@@ -1761,7 +1790,6 @@ async function deleteEntry(){
   if(!entry || !confirm(`"${entry.title}" 기록을 삭제할까요?`)) return;
   try{
     await deleteDoc(entryDocument(entry.id));
-    await removeStoredImage(entry.imagePath);
     closeOverlay(detailOverlay);
   }catch(error){
     console.error(error);
@@ -1816,7 +1844,7 @@ async function importData(file){
         const batch = writeBatch(db);
         validEntries.slice(i,i+400).forEach(raw => {
           const id = raw.id || createId();
-          const { id:ignored, ...entry } = raw;
+          const { id:ignored, imagePath:ignoredPath, ...entry } = raw;
           batch.set(entryDocument(id), { ...entry, createdAt:Number(entry.createdAt) || Date.now(), updatedAt:Date.now() });
         });
         await batch.commit();
@@ -1830,55 +1858,61 @@ async function importData(file){
   reader.readAsText(file);
 }
 
-function dataUrlToBlob(dataUrl){
-  const [meta, data] = dataUrl.split(',');
-  const mime = meta.match(/data:(.*?);/)?.[1] || 'image/jpeg';
-  const bytes = atob(data);
-  const array = new Uint8Array(bytes.length);
-  for(let i=0;i<bytes.length;i++) array[i] = bytes.charCodeAt(i);
-  return new Blob([array], {type:mime});
-}
-
 async function maybeMigrateLocalEntries(){
   if(!state.user || state.migrationRunning || localStorage.getItem(MIGRATION_KEY) === state.user.uid) return;
   let localEntries = [];
   try{ localEntries = JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }catch{}
+
   if(!Array.isArray(localEntries) || localEntries.length === 0){
     localStorage.setItem(MIGRATION_KEY, state.user.uid);
     return;
   }
 
   const confirmed = confirm(`이 브라우저에 저장된 기존 기록 ${localEntries.length}개를 Firebase 계정으로 옮길까요?`);
-  if(!confirmed){ localStorage.setItem(MIGRATION_KEY, state.user.uid); return; }
+  if(!confirmed){
+    localStorage.setItem(MIGRATION_KEY, state.user.uid);
+    return;
+  }
 
   state.migrationRunning = true;
   setSyncStatus(`기존 기록 ${localEntries.length}개 이전 중...`);
+
   try{
+    let migrated = 0;
+    let skipped = 0;
+
     for(const raw of localEntries){
       const id = raw.id || createId();
-      let image = '';
-      let imagePath = '';
-      if(typeof raw.image === 'string' && raw.image.startsWith('data:image/')){
-        const uploaded = await uploadCover(dataUrlToBlob(raw.image), id);
-        image = uploaded.image;
-        imagePath = uploaded.imagePath;
-      }else if(typeof raw.image === 'string'){
-        image = raw.image;
-      }
-      const { id:ignored, ...rest } = raw;
-      await setDoc(entryDocument(id), {
+      const { id:ignored, imagePath:ignoredPath, ...rest } = raw;
+      const entry = {
         ...rest,
-        image,
-        imagePath,
-        createdAt:Number(raw.createdAt) || Date.now(),
-        updatedAt:Date.now()
-      });
+        image: typeof raw.image === 'string' ? raw.image : '',
+        createdAt: Number(raw.createdAt) || Date.now(),
+        updatedAt: Date.now()
+      };
+
+      if(estimateEntryBytes(entry) > 850 * 1024){
+        skipped++;
+        continue;
+      }
+
+      await withTimeout(
+        setDoc(entryDocument(id), entry),
+        15000,
+        '기존 기록 이전 중 Firestore 응답 시간이 초과되었습니다.'
+      );
+      migrated++;
     }
+
     localStorage.setItem(MIGRATION_KEY, state.user.uid);
-    alert('기존 브라우저 기록을 Firebase로 옮겼습니다.');
+    alert(skipped
+      ? `기존 기록 ${migrated}개를 옮겼습니다. 용량이 너무 큰 기록 ${skipped}개는 제외되었습니다.`
+      : `기존 기록 ${migrated}개를 Firebase로 옮겼습니다.`
+    );
   }catch(error){
     console.error(error);
-    alert('기존 기록 이전 중 일부 오류가 발생했습니다. 다시 로그인하면 재시도할 수 있습니다.');
+    alert(`기존 기록 이전 중 오류가 발생했습니다.
+${error.message || ''}`);
   }finally{
     state.migrationRunning = false;
   }
@@ -1915,9 +1949,11 @@ imageInput.addEventListener('change', async () => {
     return;
   }
   try{
-    const result = await resizeImage(file);
-    state.imageFile = result.blob;
-    setImagePreview(result.preview);
+    setSyncStatus('이미지 압축 중...');
+    const dataUrl = await resizeImage(file);
+    state.imageFile = null;
+    setImagePreview(dataUrl);
+    setSyncStatus('이미지 준비 완료 · 기록 저장 버튼을 눌러주세요.');
   }catch(error){
     console.error(error);
     alert(error.message || '이미지를 처리하지 못했습니다.');
